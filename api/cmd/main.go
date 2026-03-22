@@ -6,7 +6,7 @@ import (
 	"log"
 	"os"
 	"strings"
-	"um-calendar-backend/api/handlers"
+	"um-calendar-backend/internal/handlers"
 	"um-calendar-backend/internal/repo"
 	"um-calendar-backend/internal/scraper"
 	"um-calendar-backend/internal/services"
@@ -31,8 +31,8 @@ func main() {
 	router := gin.Default()
 	handler := handlers.New(calendarRepo)
 	router.GET("/health", handler.HealthCheck)
-	router.GET("/calendars", handler.ServeCalendarLinks)
-	router.GET("/calendars/:value", handler.ServeSingleCalendar)
+	router.GET("/data/names", handler.ServeCalendarNames)
+	router.GET("/data/cal/:name", handler.ServeCalendarICSByName)
 	if err := router.Run(":8080"); err != nil {
 		log.Fatal(err)
 	}

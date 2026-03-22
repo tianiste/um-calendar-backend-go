@@ -38,8 +38,8 @@ func (repo *CalendarRepo) GetAllCalendars() ([]models.Calendar, error) {
 	return calendars, nil
 }
 
-func (repo *CalendarRepo) GetSingleCalendar(code string) (*models.Calendar, error) {
-	row := repo.db.QueryRow("SELECT id, name, ics_url, code, etag, last_modified, content_hash, last_checked_at FROM calendars WHERE code = $1", code)
+func (repo *CalendarRepo) GetCalendarByName(name string) (*models.Calendar, error) {
+	row := repo.db.QueryRow("SELECT id, name, ics_url, code, etag, last_modified, content_hash, last_checked_at FROM calendars WHERE name = $1", name)
 	var calendar models.Calendar
 	if err := row.Scan(&calendar.ID, &calendar.Name, &calendar.ICS_url, &calendar.Code, &calendar.ETag, &calendar.LastModified, &calendar.ContentHash, &calendar.LastChecked); err != nil {
 		if err == sql.ErrNoRows {
@@ -47,6 +47,7 @@ func (repo *CalendarRepo) GetSingleCalendar(code string) (*models.Calendar, erro
 		}
 		return nil, err
 	}
+
 	return &calendar, nil
 }
 
