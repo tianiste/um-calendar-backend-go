@@ -1,41 +1,66 @@
 package main
 
 import (
-	"net/http"
+	"database/sql"
+	"fmt"
+	"log"
+	"os"
+	"strings"
+	"um-calendar-backend/api/handlers"
+	"um-calendar-backend/internal/repo"
 	"um-calendar-backend/internal/scraper"
+	"um-calendar-backend/internal/services"
 
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
+
+	_ "github.com/lib/pq"
 )
 
+var calendarRepo *repo.CalendarRepo
+
 func main() {
-	scraper.CalendarLinks = make(map[string]string)
-	scraper.GetCalendarLinks()
+	_ = godotenv.Load()
 
-	router := gin.Default()
-	router.GET("/health", healthCheck)
-	router.GET("/calendars", serveCalendarLinks)
-	router.Run(":8080")
-}
-
-func healthCheck(ctx *gin.Context) {
-	ctx.JSON(http.StatusOK, gin.H{
-		"message": "pong",
-	})
-}
-
-type calendar struct {
-	Naziv string
-	Link  string
-}
-
-func serveCalendarLinks(ctx *gin.Context) {
-	var output []calendar
-	for key, value := range scraper.CalendarLinks {
-		output = append(output, calendar{Naziv: key, Link: value})
+	if err := setupSync(); err != nil {
+		log.Printf("calendar sync setup skipped: %v", err)
+		scraper.CalendarLinks = make(map[string]string)
+		scraper.GetCalendarLinks()
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"items": output,
-		"count": len(output),
-	})
+	router := gin.Default()
+	handler := handlers.New(calendarRepo)
+	router.GET("/health", handler.HealthCheck)
+	router.GET("/calendars", handler.ServeCalendarLinks)
+	router.GET("/calendars/:value", handler.ServeSingleCalendar)
+	if err := router.Run(":8080"); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func setupSync() error {
+	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
+	if databaseURL == "" {
+		return fmt.Errorf("DATABASE_URL is not set")
+	}
+
+	db, err := sql.Open("postgres", databaseURL)
+	if err != nil {
+		return err
+	}
+
+	if err := db.Ping(); err != nil {
+		return err
+	}
+
+	calendarRepo = repo.NewCalendarRepo(db)
+	syncService := services.NewCalendarSyncService(calendarRepo)
+
+	if err := syncService.SyncCalendars(); err != nil {
+		return err
+	}
+
+	syncService.StartHourly()
+	log.Println("calendar sync initialized (immediate + hourly)")
+	return nil
 }
