@@ -2,6 +2,7 @@ package scraper
 
 import (
 	"fmt"
+	"log/slog"
 	"net/url"
 	"sort"
 	"strconv"
@@ -61,19 +62,19 @@ func fetchCalendarLinks() (map[string]string, error) {
 		}
 
 		calendarLinks[fullName] = resolvedURL.String()
-		fmt.Printf("Calendar link found: %q -> %s\n", fullName, resolvedURL.String())
+		slog.Debug("calendar link found", "name", fullName, "url", resolvedURL.String())
 	})
 
 	collector.OnRequest(func(r *colly.Request) {
-		fmt.Println("Visiting", r.URL.String())
+		slog.Debug("scraper visiting url", "url", r.URL.String())
 	})
 
 	collector.OnError(func(r *colly.Response, err error) {
 		if r != nil && r.Request != nil {
-			fmt.Printf("Error while visiting %s: %v\n", r.Request.URL.String(), err)
+			slog.Error("scraper request failed", "url", r.Request.URL.String(), "error", err)
 			return
 		}
-		fmt.Println("Collector error:", err)
+		slog.Error("scraper collector error", "error", err)
 	})
 
 	if err := collector.Visit(startURL); err != nil {
@@ -86,7 +87,7 @@ func fetchCalendarLinks() (map[string]string, error) {
 func GetCalendarLinks() {
 	links, err := fetchCalendarLinks()
 	if err != nil {
-		fmt.Println("scraper error:", err)
+		slog.Error("scraper failed to fetch calendar links", "error", err)
 		return
 	}
 

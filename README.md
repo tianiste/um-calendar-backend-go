@@ -60,6 +60,9 @@ cp .env.example .env
 - `DB_MAX_OPEN_CONNS` (default: `25`)
 - `DB_MAX_IDLE_CONNS` (default: `10`)
 - `DB_CONN_MAX_LIFETIME` (default: `30m`)
+- `IN_MEMORY_CACHE_TTL` (default: `5m`)
+- `LOG_LEVEL` (default: `info`; options: `debug`, `info`, `warn`, `error`)
+- `LOG_FORMAT` (default: `json`; options: `json`, `text`)
 
 ## Local Development
 

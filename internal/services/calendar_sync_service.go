@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -44,7 +45,7 @@ func (service *CalendarSyncService) SyncCalendars() error {
 	for _, calendar := range storedCalendars {
 		err := service.checkAndUpdateCalendar(calendar.ID, calendar.ICS_url, calendar.ETag, calendar.LastModified, calendar.ContentHash)
 		if err != nil {
-			fmt.Printf("sync check failed for calendar %s (%s): %v\n", calendar.Code, calendar.Name, err)
+			slog.Error("sync check failed for calendar", "calendar_code", calendar.Code, "calendar_name", calendar.Name, "error", err)
 		}
 	}
 
@@ -56,7 +57,7 @@ func (service *CalendarSyncService) StartHourly() {
 	go func() {
 		for range ticker.C {
 			if err := service.SyncCalendars(); err != nil {
-				fmt.Println("hourly calendar sync failed:", err)
+				slog.Error("hourly calendar sync failed", "error", err)
 			}
 		}
 	}()

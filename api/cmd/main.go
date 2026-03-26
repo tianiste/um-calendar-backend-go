@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -12,6 +12,7 @@ import (
 	"time"
 	"um-calendar-backend/internal/cache"
 	"um-calendar-backend/internal/handlers"
+	"um-calendar-backend/internal/logging"
 	"um-calendar-backend/internal/middleware"
 	"um-calendar-backend/internal/repo"
 	"um-calendar-backend/internal/scraper"
@@ -31,9 +32,10 @@ var calendarRepo *repo.CalendarRepo
 
 func main() {
 	_ = godotenv.Load()
+	logging.Configure()
 
 	if err := setupSync(); err != nil {
-		log.Printf("calendar sync setup skipped: %v", err)
+		slog.Warn("calendar sync setup skipped, using in-memory scraper fallback", "error", err)
 		scraper.CalendarLinks = make(map[string]string)
 		scraper.GetCalendarLinks()
 	}
@@ -46,7 +48,8 @@ func main() {
 	router.GET("/data/names", handler.ServeCalendarNames)
 	router.GET("/data/cal/:name", handler.ServeCalendarICSByName)
 	if err := router.Run(":8080"); err != nil {
-		log.Fatal(err)
+		slog.Error("server failed to start", "error", err)
+		os.Exit(1)
 	}
 }
 
@@ -79,7 +82,7 @@ func setupSync() error {
 	}
 
 	syncService.StartHourly()
-	log.Println("calendar sync initialized (immediate + hourly)")
+	slog.Info("calendar sync initialized", "mode", "immediate+hourly")
 	return nil
 }
 
@@ -108,7 +111,7 @@ func runMigrations(databaseURL string) error {
 		return fmt.Errorf("run migrations: %w", err)
 	}
 
-	log.Printf("migrations ready from %s", sourceURL)
+	slog.Info("migrations ready", "source", sourceURL)
 	return nil
 }
 

@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"sort"
 	"strings"
@@ -51,7 +51,7 @@ func (handler *Handler) ServeCalendarNames(ctx *gin.Context) {
 			return
 		}
 
-		log.Printf("failed to read calendar names from db: %v", err)
+		slog.Error("failed to read calendar names from db", "error", err)
 	}
 
 	names = make([]string, 0, len(scraper.CalendarLinks))
@@ -118,7 +118,7 @@ func (handler *Handler) resolveCalendarLinkByName(name string) string {
 		}
 
 		if err != nil {
-			log.Printf("failed to read single calendar by name from db: %v", err)
+			slog.Error("failed to read calendar by name from db", "calendar_name", name, "error", err)
 		}
 	}
 

@@ -1,8 +1,9 @@
 package main
 
 import (
-	"log"
+	"log/slog"
 	"os"
+	"um-calendar-backend/internal/logging"
 
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
@@ -13,17 +14,20 @@ import (
 
 func main() {
 	godotenv.Load()
+	logging.Configure()
 	m, err := migrate.New(
 		"file://db/migrations",
 		os.Getenv("DATABASE_URL"),
 	)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("failed to create migrator", "error", err)
+		os.Exit(1)
 	}
 
 	if err := m.Up(); err != nil && err.Error() != "no change" {
-		log.Fatal(err)
+		slog.Error("failed to apply migrations", "error", err)
+		os.Exit(1)
 	}
 
-	log.Println("migrations applied")
+	slog.Info("migrations applied")
 }
