@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 	"um-calendar-backend/internal/repo"
 	"um-calendar-backend/internal/scraper"
@@ -16,6 +17,7 @@ import (
 type CalendarSyncService struct {
 	repo       *repo.CalendarRepo
 	httpClient *http.Client
+	workers    int
 }
 
 func NewCalendarSyncService(calendarRepo *repo.CalendarRepo) *CalendarSyncService {
@@ -24,6 +26,7 @@ func NewCalendarSyncService(calendarRepo *repo.CalendarRepo) *CalendarSyncServic
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
+		workers: 8,
 	}
 }
 
@@ -42,12 +45,31 @@ func (service *CalendarSyncService) SyncCalendars() error {
 		return fmt.Errorf("list calendars: %w", err)
 	}
 
-	for _, calendar := range storedCalendars {
-		err := service.checkAndUpdateCalendar(calendar.ID, calendar.ICS_url, calendar.ETag, calendar.LastModified, calendar.ContentHash)
-		if err != nil {
-			slog.Error("sync check failed for calendar", "calendar_code", calendar.Code, "calendar_name", calendar.Name, "error", err)
-		}
+	workers := service.workers
+	if workers <= 0 {
+		workers = 1
 	}
+
+	sem := make(chan struct{}, workers)
+	var waitGroup sync.WaitGroup
+
+	for _, calendar := range storedCalendars {
+		calendar := calendar
+		waitGroup.Add(1)
+
+		go func() {
+			defer waitGroup.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			err := service.checkAndUpdateCalendar(calendar.ID, calendar.ICS_url, calendar.ETag, calendar.LastModified, calendar.ContentHash)
+			if err != nil {
+				slog.Error("sync check failed for calendar", "calendar_code", calendar.Code, "calendar_name", calendar.Name, "error", err)
+			}
+		}()
+	}
+
+	waitGroup.Wait()
 
 	return nil
 }

@@ -35,10 +35,19 @@ func main() {
 	_ = godotenv.Load()
 	logging.Configure()
 
-	if err := setupSync(); err != nil {
+	syncService, err := setupSync()
+	if err != nil {
 		slog.Warn("calendar sync setup skipped, using in-memory scraper fallback", "error", err)
 		scraper.CalendarLinks = make(map[string]string)
-		scraper.GetCalendarLinks()
+		go scraper.GetCalendarLinks()
+	} else {
+		syncService.StartHourly()
+		go func() {
+			if err := syncService.SyncCalendars(); err != nil {
+				slog.Error("initial calendar sync failed", "error", err)
+			}
+		}()
+		slog.Info("calendar sync initialized", "mode", "background+hourly")
 	}
 
 	router := gin.Default()
@@ -78,37 +87,29 @@ func serverAddr() string {
 	return ":" + port
 }
 
-func setupSync() error {
+func setupSync() (*services.CalendarSyncService, error) {
 	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
 	if databaseURL == "" {
-		return fmt.Errorf("DATABASE_URL is not set")
+		return nil, fmt.Errorf("DATABASE_URL is not set")
 	}
 
 	if err := runMigrations(databaseURL); err != nil {
-		return err
+		return nil, err
 	}
 
 	db, err := sql.Open("postgres", databaseURL)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	configureDBPool(db)
 
 	if err := db.Ping(); err != nil {
-		return err
+		return nil, err
 	}
 
 	calendarRepo = repo.NewCalendarRepo(db)
-	syncService := services.NewCalendarSyncService(calendarRepo)
-
-	if err := syncService.SyncCalendars(); err != nil {
-		return err
-	}
-
-	syncService.StartHourly()
-	slog.Info("calendar sync initialized", "mode", "immediate+hourly")
-	return nil
+	return services.NewCalendarSyncService(calendarRepo), nil
 }
 
 func runMigrations(databaseURL string) error {
