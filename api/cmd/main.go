@@ -18,6 +18,7 @@ import (
 	"um-calendar-backend/internal/scraper"
 	"um-calendar-backend/internal/services"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
@@ -41,6 +42,17 @@ func main() {
 	}
 
 	router := gin.Default()
+
+	corsConfig := cors.DefaultConfig()
+	corsConfig.AllowOrigins = []string{
+		"http://localhost:3000",
+		"http://localhost:5173",
+		"https://8d3a68f3.um-calendar-frontend.pages.dev",
+	}
+	corsConfig.AllowMethods = []string{"GET", "OPTIONS"}
+	corsConfig.AllowHeaders = []string{"Content-Type"}
+	router.Use(cors.New(corsConfig))
+
 	router.Use(middleware.NewIPRateLimiter(rateLimit(), rateBurst(), time.Minute, 10*time.Minute))
 	inMemoryCache := cache.NewInMemoryCache(envDuration("IN_MEMORY_CACHE_TTL", 5*time.Minute))
 	handler := handlers.New(calendarRepo, inMemoryCache)
