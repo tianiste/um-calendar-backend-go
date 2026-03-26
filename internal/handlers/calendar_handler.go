@@ -7,7 +7,6 @@ import (
 	"sort"
 	"strings"
 	"time"
-	"um-calendar-backend/internal/cache"
 	"um-calendar-backend/internal/repo"
 	"um-calendar-backend/internal/scraper"
 
@@ -16,16 +15,12 @@ import (
 
 type Handler struct {
 	calendarRepo *repo.CalendarRepo
-	redisCache   *cache.RedisCache
-	cacheTTL     time.Duration
 	httpClient   *http.Client
 }
 
-func New(calendarRepo *repo.CalendarRepo, redisCache *cache.RedisCache, cacheTTL time.Duration) *Handler {
+func New(calendarRepo *repo.CalendarRepo) *Handler {
 	return &Handler{
 		calendarRepo: calendarRepo,
-		redisCache:   redisCache,
-		cacheTTL:     cacheTTL,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
@@ -78,18 +73,6 @@ func (handler *Handler) ServeCalendarICSByName(ctx *gin.Context) {
 		return
 	}
 
-	cacheKey := "calendar:ics:" + name
-	if handler.redisCache != nil {
-		cachedContent, found, err := handler.redisCache.Get(ctx.Request.Context(), cacheKey)
-		if err != nil {
-			log.Printf("redis get failed: %v", err)
-		} else if found {
-			ctx.Header("X-Cache", "HIT")
-			ctx.Data(http.StatusOK, "text/calendar; charset=utf-8", []byte(cachedContent))
-			return
-		}
-	}
-
 	request, err := http.NewRequest(http.MethodGet, calendarURL, nil)
 	if err != nil {
 		ctx.Status(http.StatusInternalServerError)
@@ -112,13 +95,6 @@ func (handler *Handler) ServeCalendarICSByName(ctx *gin.Context) {
 	if err != nil {
 		ctx.Status(http.StatusBadGateway)
 		return
-	}
-
-	if handler.redisCache != nil {
-		if err := handler.redisCache.Set(ctx.Request.Context(), cacheKey, string(fileContent), handler.cacheTTL); err != nil {
-			log.Printf("redis set failed: %v", err)
-		}
-		ctx.Header("X-Cache", "MISS")
 	}
 
 	ctx.Data(http.StatusOK, "text/calendar; charset=utf-8", fileContent)

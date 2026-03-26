@@ -60,12 +60,6 @@ cp .env.example .env
 - `DB_MAX_OPEN_CONNS` (default: `25`)
 - `DB_MAX_IDLE_CONNS` (default: `10`)
 - `DB_CONN_MAX_LIFETIME` (default: `30m`)
-- `ICS_CACHE_TTL` (default: `15m`) - Redis TTL for cached `.ics` responses
-- `REDIS_URL` (preferred) - full Redis connection URL, e.g. `redis://...` or `rediss://...`
-- `REDIS_ADDR` - Redis host:port (used when `REDIS_URL` is not set)
-- `REDIS_PASSWORD` - Redis password (optional, required for most hosted Redis)
-- `REDIS_DB` (default: `0`) - Redis DB index
-- `REDIS_TLS` (default: `false`) - enable TLS when using `REDIS_ADDR`
 
 ## Local Development
 
@@ -88,19 +82,3 @@ Server starts on `http://localhost:8080`.
 - If DB setup fails at startup, the app falls back to in-memory scraping so endpoints can still work.
 - `/data/cal/:name` returns `404` when the calendar is not found.
 - Rate limiting is applied per client IP.
-- If Redis is configured, `/data/cal/:name` uses cache-aside with TTL and sets `X-Cache: HIT|MISS`.
-
-## Redis + Azure
-
-For Azure Cache for Redis, use `REDIS_URL` with TLS:
-
-```env
-REDIS_URL=rediss://:<access-key>@<name>.redis.cache.windows.net:6380/0
-ICS_CACHE_TTL=15m
-```
-
-Recommended Azure setup:
-
-- Host API on Azure App Service or Container Apps.
-- Store `REDIS_URL` in App Settings (or Key Vault reference), not in source code.
-- Keep TLS enabled (`rediss://`) for production.
