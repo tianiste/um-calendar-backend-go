@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"um-calendar-backend/internal/cache"
 	"um-calendar-backend/internal/handlers"
 	"um-calendar-backend/internal/middleware"
 	"um-calendar-backend/internal/repo"
@@ -39,7 +40,13 @@ func main() {
 
 	router := gin.Default()
 	router.Use(middleware.NewIPRateLimiter(rateLimit(), rateBurst(), time.Minute, 10*time.Minute))
-	handler := handlers.New(calendarRepo)
+
+	redisCache, err := cache.NewRedisCacheFromEnv()
+	if err != nil {
+		log.Printf("redis cache disabled: %v", err)
+	}
+
+	handler := handlers.New(calendarRepo, redisCache, envDuration("ICS_CACHE_TTL", 15*time.Minute))
 	router.GET("/health", handler.HealthCheck)
 	router.GET("/data/names", handler.ServeCalendarNames)
 	router.GET("/data/cal/:name", handler.ServeCalendarICSByName)
