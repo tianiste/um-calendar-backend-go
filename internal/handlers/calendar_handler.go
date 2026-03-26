@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"um-calendar-backend/internal/cache"
 	"um-calendar-backend/internal/repo"
 	"um-calendar-backend/internal/scraper"
 
@@ -14,16 +15,18 @@ import (
 )
 
 type Handler struct {
-	calendarRepo *repo.CalendarRepo
-	httpClient   *http.Client
+	calendarRepo  *repo.CalendarRepo
+	httpClient    *http.Client
+	inMemoryCache *cache.InMemoryCache
 }
 
-func New(calendarRepo *repo.CalendarRepo) *Handler {
+func New(calendarRepo *repo.CalendarRepo, inMemoryCache *cache.InMemoryCache) *Handler {
 	return &Handler{
 		calendarRepo: calendarRepo,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
+		inMemoryCache: inMemoryCache,
 	}
 }
 
@@ -73,6 +76,12 @@ func (handler *Handler) ServeCalendarICSByName(ctx *gin.Context) {
 		return
 	}
 
+	if entry, ok := handler.inMemoryCache.Get(calendarURL); ok {
+		ctx.Header("X-Cache", "HIT")
+		ctx.Data(http.StatusOK, entry.ContentType, entry.Content)
+		return
+	}
+
 	request, err := http.NewRequest(http.MethodGet, calendarURL, nil)
 	if err != nil {
 		ctx.Status(http.StatusInternalServerError)
@@ -96,7 +105,8 @@ func (handler *Handler) ServeCalendarICSByName(ctx *gin.Context) {
 		ctx.Status(http.StatusBadGateway)
 		return
 	}
-
+	handler.inMemoryCache.Set(calendarURL, fileContent, "text/calendar; charset=utf-8")
+	ctx.Header("X-Cache", "MISS")
 	ctx.Data(http.StatusOK, "text/calendar; charset=utf-8", fileContent)
 }
 

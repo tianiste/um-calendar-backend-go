@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"um-calendar-backend/internal/cache"
 	"um-calendar-backend/internal/handlers"
 	"um-calendar-backend/internal/middleware"
 	"um-calendar-backend/internal/repo"
@@ -39,7 +40,8 @@ func main() {
 
 	router := gin.Default()
 	router.Use(middleware.NewIPRateLimiter(rateLimit(), rateBurst(), time.Minute, 10*time.Minute))
-	handler := handlers.New(calendarRepo)
+	inMemoryCache := cache.NewInMemoryCache(envDuration("IN_MEMORY_CACHE_TTL", 5*time.Minute))
+	handler := handlers.New(calendarRepo, inMemoryCache)
 	router.GET("/health", handler.HealthCheck)
 	router.GET("/data/names", handler.ServeCalendarNames)
 	router.GET("/data/cal/:name", handler.ServeCalendarICSByName)
