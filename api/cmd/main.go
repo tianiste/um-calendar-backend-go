@@ -47,10 +47,23 @@ func main() {
 	router.GET("/health", handler.HealthCheck)
 	router.GET("/data/names", handler.ServeCalendarNames)
 	router.GET("/data/cal/:name", handler.ServeCalendarICSByName)
-	if err := router.Run(":8080"); err != nil {
+	if err := router.Run(serverAddr()); err != nil {
 		slog.Error("server failed to start", "error", err)
 		os.Exit(1)
 	}
+}
+
+func serverAddr() string {
+	port := strings.TrimSpace(os.Getenv("PORT"))
+	if port == "" {
+		port = "8080"
+	}
+
+	if strings.HasPrefix(port, ":") {
+		return port
+	}
+
+	return ":" + port
 }
 
 func setupSync() error {
